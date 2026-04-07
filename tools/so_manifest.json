@@ -1,0 +1,20 @@
+{
+  "levels": {
+    "0": [
+      {"name": "libcore.so",  "deps": []},
+      {"name": "libcrash.so", "deps": []}
+    ],
+    "1": [
+      {"name": "libui.so",      "deps": ["libcore.so"]},
+      {"name": "libnetwork.so", "deps": []}
+    ],
+    "2": [
+      {"name": "libpayment.so", "deps": ["libnetwork.so"]},
+      {"name": "libim.so",      "deps": []}
+    ],
+    "3": [
+      {"name": "libvideo.so", "deps": []},
+      {"name": "libmap.so",   "deps": []}
+    ]
+  }
+}

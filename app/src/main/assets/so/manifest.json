@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "abi": "arm64-v8a",
+  "entries": {
+    "libcore.so": {
+      "level": 0,
+      "asset_path": "so/l0/libcore.so",
+      "compressed": false,
+      "orig_size": 131072,
+      "compressed_size": 131072,
+      "orig_md5": "238a85cf454c1b8b1c4dba16600b9618",
+      "deps": []
+    },
+    "libcrash.so": {
+      "level": 0,
+      "asset_path": "so/l0/libcrash.so",
+      "compressed": false,
+      "orig_size": 65536,
+      "compressed_size": 65536,
+      "orig_md5": "a76145ede3dcbd2edd5e5e8db11a3b53",
+      "deps": []
+    },
+    "libui.so": {
+      "level": 1,
+      "asset_path": "so/l1/libui.so.lzma",
+      "compressed": true,
+      "orig_size": 524288,
+      "compressed_size": 237132,
+      "orig_md5": "8a479c2d189bf668141c5a1c3bf01c92",
+      "deps": [
+        "libcore.so"
+      ]
+    },
+    "libnetwork.so": {
+      "level": 1,
+      "asset_path": "so/l1/libnetwork.so.lzma",
+      "compressed": true,
+      "orig_size": 262144,
+      "compressed_size": 118068,
+      "orig_md5": "916867aabf66aa0d597e04cf21f4ade2",
+      "deps": []
+    },
+    "libpayment.so": {
+      "level": 2,
+      "asset_path": "so/l2/libpayment.so.lzma",
+      "compressed": true,
+      "orig_size": 393216,
+      "compressed_size": 165700,
+      "orig_md5": "edcefea325add84bf591027c76a88717",
+      "deps": [
+        "libnetwork.so"
+      ]
+    },
+    "libim.so": {
+      "level": 2,
+      "asset_path": "so/l2/libim.so.lzma",
+      "compressed": true,
+      "orig_size": 655360,
+      "compressed_size": 274648,
+      "orig_md5": "fef408cf8713b10788c0d8ce51c09a03",
+      "deps": []
+    },
+    "libvideo.so": {
+      "level": 3,
+      "asset_path": "so/l3/libvideo.so.lzma",
+      "compressed": true,
+      "orig_size": 1048576,
+      "compressed_size": 439136,
+      "orig_md5": "8216dec6ea40ed6f8af5f77fa15d1530",
+      "deps": []
+    },
+    "libmap.so": {
+      "level": 3,
+      "asset_path": "so/l3/libmap.so.lzma",
+      "compressed": true,
+      "orig_size": 786432,
+      "compressed_size": 330672,
+      "orig_md5": "e988ce5d48a5e88bea61be0e96856091",
+      "deps": []
+    }
+  }
+}

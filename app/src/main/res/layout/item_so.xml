@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#FFFFFF"
+    android:padding="12dp"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginTop="8dp"
+    android:elevation="2dp">
+
+    <TextView
+        android:id="@+id/tvSoName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#1A237E"
+        android:fontFamily="monospace" />
+
+    <TextView
+        android:id="@+id/tvSoInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="11sp"
+        android:textColor="#616161"
+        android:fontFamily="monospace" />
+
+    <TextView
+        android:id="@+id/tvSoState"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
