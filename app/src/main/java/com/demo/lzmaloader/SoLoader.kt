@@ -3,6 +3,7 @@ package com.demo.lzmaloader
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.demo.lzmaloader.BuildConfig
 import com.google.gson.Gson
 import kotlinx.coroutines.*
 import java.io.File

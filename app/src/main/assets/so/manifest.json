@@ -8,7 +8,7 @@
       "compressed": false,
       "orig_size": 131072,
       "compressed_size": 131072,
-      "orig_md5": "238a85cf454c1b8b1c4dba16600b9618",
+      "orig_md5": "baa91ea775090e988693fe985768c7fd",
       "deps": []
     },
     "libcrash.so": {
@@ -17,7 +17,7 @@
       "compressed": false,
       "orig_size": 65536,
       "compressed_size": 65536,
-      "orig_md5": "a76145ede3dcbd2edd5e5e8db11a3b53",
+      "orig_md5": "76141a5de5c1a9d409bf22cd23ddcb31",
       "deps": []
     },
     "libui.so": {
@@ -25,8 +25,8 @@
       "asset_path": "so/l1/libui.so.lzma",
       "compressed": true,
       "orig_size": 524288,
-      "compressed_size": 237132,
-      "orig_md5": "8a479c2d189bf668141c5a1c3bf01c92",
+      "compressed_size": 216,
+      "orig_md5": "ee01f1cb80f7d44d06a797bc6274bfd8",
       "deps": [
         "libcore.so"
       ]
@@ -36,8 +36,8 @@
       "asset_path": "so/l1/libnetwork.so.lzma",
       "compressed": true,
       "orig_size": 262144,
-      "compressed_size": 118068,
-      "orig_md5": "916867aabf66aa0d597e04cf21f4ade2",
+      "compressed_size": 180,
+      "orig_md5": "4ee1462ada10ecb30979ba177de2c11b",
       "deps": []
     },
     "libpayment.so": {
@@ -45,8 +45,8 @@
       "asset_path": "so/l2/libpayment.so.lzma",
       "compressed": true,
       "orig_size": 393216,
-      "compressed_size": 165700,
-      "orig_md5": "edcefea325add84bf591027c76a88717",
+      "compressed_size": 196,
+      "orig_md5": "9b4e2d32e770e2880da5c65b22e503e3",
       "deps": [
         "libnetwork.so"
       ]
@@ -56,8 +56,8 @@
       "asset_path": "so/l2/libim.so.lzma",
       "compressed": true,
       "orig_size": 655360,
-      "compressed_size": 274648,
-      "orig_md5": "fef408cf8713b10788c0d8ce51c09a03",
+      "compressed_size": 236,
+      "orig_md5": "4ad83ebbd1206a940e9b09a32e249701",
       "deps": []
     },
     "libvideo.so": {
@@ -65,8 +65,8 @@
       "asset_path": "so/l3/libvideo.so.lzma",
       "compressed": true,
       "orig_size": 1048576,
-      "compressed_size": 439136,
-      "orig_md5": "8216dec6ea40ed6f8af5f77fa15d1530",
+      "compressed_size": 288,
+      "orig_md5": "efda0af253cf00583e6651d481a05a21",
       "deps": []
     },
     "libmap.so": {
@@ -74,8 +74,8 @@
       "asset_path": "so/l3/libmap.so.lzma",
       "compressed": true,
       "orig_size": 786432,
-      "compressed_size": 330672,
-      "orig_md5": "e988ce5d48a5e88bea61be0e96856091",
+      "compressed_size": 252,
+      "orig_md5": "e2483ec6572cffc8a980e7e868c913be",
       "deps": []
     }
   }
