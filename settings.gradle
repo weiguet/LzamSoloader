@@ -1,10 +1,13 @@
 pluginManagement {
+    // Local plugin — no need to publish
+    includeBuild('so-loader-plugin')
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -12,5 +15,13 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
+// Resolve com.demo:soloader from the local module instead of Maven
+includeBuild('soloader') {
+    dependencySubstitution {
+        substitute module('com.demo:soloader') using project(':')
+    }
+}
+
 rootProject.name = "LzmaLoaderDemo"
 include ':app'

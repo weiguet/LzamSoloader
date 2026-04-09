@@ -1,4 +1,4 @@
-package com.demo.lzmaloader
+package com.demo.soloader
 
 import com.google.gson.annotations.SerializedName
 
@@ -26,7 +26,6 @@ data class SOEntry(
     @SerializedName("orig_md5")        val origMd5: String,
     val deps: List<String> = emptyList()
 ) {
-    // 从 asset_path 反推 SO 名称
     val name: String get() = assetPath
         .substringAfterLast("/")
         .removeSuffix(".lzma")
@@ -40,10 +39,9 @@ data class SOEntry(
         ((origSize - compressedSize) / 1024).toInt()
 }
 
-// 加载状态，用于UI展示
 sealed class LoadState {
-    object Pending   : LoadState()
-    object Loading   : LoadState()
-    data class Done(val ms: Long) : LoadState()
+    object Pending                    : LoadState()
+    object Loading                    : LoadState()
+    data class Done(val ms: Long)     : LoadState()
     data class Error(val msg: String) : LoadState()
 }

@@ -1,0 +1,62 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
+}
+
+group   = 'com.demo'
+version = '1.0.0'
+
+android {
+    namespace  'com.demo.soloader'
+    compileSdk 34
+    ndkVersion '25.1.8937393'
+
+    defaultConfig {
+        minSdk 21
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path    "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions { jvmTarget = '1.8' }
+
+    publishing {
+        singleVariant('release') { withSourcesJar() }
+    }
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.tukaani:xz:1.9'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                groupId    = 'com.demo'
+                artifactId = 'soloader'
+                version    = '1.0.0'
+                from components.release
+            }
+        }
+    }
+}

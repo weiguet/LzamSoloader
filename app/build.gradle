@@ -1,41 +1,27 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'com.demo.so-loader'          // ← 插件自动处理任务、aaptOptions、soloader 依赖
 }
 
 android {
-    namespace 'com.demo.lzmaloader'
+    namespace  'com.demo.lzmaloader'
     compileSdk 34
 
     defaultConfig {
         applicationId "com.demo.lzmaloader"
-        minSdk 21
-        targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        minSdk        21
+        targetSdk     34
+        versionCode   1
+        versionName   "1.0"
 
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
-        }
-
-        externalNativeBuild {
-            cmake {
-                cppFlags "-std=c++17"
-                arguments "-DANDROID_STL=c++_shared"
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
         }
     }
 
     buildFeatures {
         viewBinding true
-        buildConfig true
     }
 
     compileOptions {
@@ -46,11 +32,14 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+}
 
-    // XZ 文件已是二进制压缩格式，aapt 不需要再压缩
-    aaptOptions {
-        noCompress 'lzma', 'so'
-    }
+// 插件 DSL —— 告诉插件原始 SO 和 manifest 在哪里
+soLoader {
+    soSrcDir     = file("${rootProject.projectDir}/tools/so_src/arm64-v8a")
+    manifestFile = file("${rootProject.projectDir}/tools/so_manifest.json")
+    outDir       = file("src/main/assets/so")
+    algorithm    = 'lzma'
 }
 
 dependencies {
@@ -58,28 +47,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-    // XZ/LZMA2 解压库（纯 Java，无 native 依赖）
-    implementation 'org.tukaani:xz:1.9'
-}
-
-// ============================================================
-// assembleRelease 前自动用 LZMA 重新打包 SO assets
-// ============================================================
-tasks.register('packSoAssetsRelease', Exec) {
-    group 'build'
-    description '用 LZMA 压缩 SO 并生成 manifest.json（assembleRelease 前自动触发）'
-    commandLine 'python3',
-        "${rootProject.projectDir}/tools/pack_so.py",
-        '--so-dir',   "${rootProject.projectDir}/tools/so_src/arm64-v8a",
-        '--manifest', "${rootProject.projectDir}/tools/so_manifest.json",
-        '--out',      "${projectDir}/src/main/assets/so",
-        '--algo',     'lzma'
-}
-
-afterEvaluate {
-    tasks.named('mergeReleaseAssets').configure {
-        dependsOn 'packSoAssetsRelease'
-    }
+    // com.demo:soloader 由插件自动添加，无需手写
 }

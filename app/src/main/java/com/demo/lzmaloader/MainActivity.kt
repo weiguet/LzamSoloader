@@ -10,8 +10,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.demo.lzmaloader.databinding.ActivityMainBinding
+import com.demo.soloader.LoadState
+import com.demo.soloader.SOEntry
+import com.demo.soloader.SoLoader
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 

@@ -2,6 +2,7 @@ package com.demo.lzmaloader
 
 import android.app.Application
 import android.util.Log
+import com.demo.soloader.SoLoader
 
 class App : Application() {
 
