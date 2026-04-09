@@ -58,6 +58,13 @@ class SoLoaderPlugin : Plugin<Project> {
                 project.tasks.named("merge${cap}Assets").configure(Action<Task> {
                     dependsOn(packTask)
                 })
+
+                // Lint reads src/main/assets, so it must run after pack to avoid
+                // Gradle implicit-dependency warnings.
+                project.tasks.matching { it.name.contains("lint", ignoreCase = true) && it.name.contains(cap) }
+                    .configureEach(Action<Task> {
+                        mustRunAfter(packTask)
+                    })
             })
 
             project.dependencies.add("implementation", "com.demo:soloader:1.0.0")

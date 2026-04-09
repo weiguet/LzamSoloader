@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeLoadStates() {
-        SoLoader.onStateChanged = { name, state ->
+        SoLoader.onStateChanged = { _, _ ->
             // 已在主线程
             val entries = SoLoader.manifest.allSorted()
             adapter.update(entries.map { it to SoLoader.loadStates[it.name] })
