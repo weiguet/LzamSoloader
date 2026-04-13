@@ -9,10 +9,6 @@ object LZMANative {
 
     private const val TAG = "LZMANative"
 
-    init {
-        System.loadLibrary("lzma_loader")
-    }
-
     fun decompress(
         assetMgr: AssetManager,
         assetPath: String,
@@ -24,7 +20,6 @@ object LZMANative {
             assetMgr.open(assetPath).use { raw ->
                 XZInputStream(raw).use { xz ->
                     val outFile = File(dstPath)
-                    // 64KB 写缓冲，降低大量 SO 并发解压时的内存峰值
                     outFile.outputStream().buffered(64 * 1024).use { out ->
                         xz.copyTo(out, bufferSize = 16 * 1024)
                     }
@@ -39,9 +34,22 @@ object LZMANative {
         }
     }
 
-    external fun copyAsset(
+    fun copyAsset(
         assetMgr: AssetManager,
         assetPath: String,
         dstPath: String
-    ): Boolean
+    ): Boolean {
+        return try {
+            assetMgr.open(assetPath).use { input ->
+                File(dstPath).outputStream().buffered(64 * 1024).use { output ->
+                    input.copyTo(output, bufferSize = 64 * 1024)
+                }
+            }
+            Log.i(TAG, "copyAsset OK: $assetPath -> $dstPath")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "copyAsset failed: $assetPath", e)
+            false
+        }
+    }
 }

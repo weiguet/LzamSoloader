@@ -10,24 +10,8 @@ version = '1.0.0'
 android {
     namespace  'com.demo.soloader'
     compileSdk 34
-    ndkVersion '25.1.8937393'
-
     defaultConfig {
         minSdk 21
-
-        externalNativeBuild {
-            cmake {
-                cppFlags "-std=c++17"
-                arguments "-DANDROID_STL=c++_shared"
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path    "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
-        }
     }
 
     compileOptions {
