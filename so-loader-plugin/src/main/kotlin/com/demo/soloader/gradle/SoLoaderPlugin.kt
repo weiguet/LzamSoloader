@@ -32,6 +32,7 @@ class SoLoaderPlugin : Plugin<Project> {
             val android = project.extensions.findByType(AppExtension::class.java)
                 ?: error("[so-loader] Plugin must be applied to an Android application module.")
 
+            @Suppress("DEPRECATION")
             android.aaptOptions.noCompress("lzma", "so")
             android.buildFeatures.buildConfig = true
 

@@ -32,7 +32,7 @@ abstract class PackSoAssetsTask : DefaultTask() {
         val tempScript = temporaryDir.resolve("pack_so.py")
         tempScript.outputStream().use { scriptBytes.copyTo(it) }
 
-        project.exec(Action<ExecSpec> {
+        val result = project.exec(Action<ExecSpec> {
             commandLine(
                 "python3",
                 tempScript.absolutePath,
@@ -41,6 +41,13 @@ abstract class PackSoAssetsTask : DefaultTask() {
                 "--out",      outDir.get().asFile.absolutePath,
                 "--algo",     algorithm.get()
             )
+            isIgnoreExitValue = true
         })
+        if (result.exitValue != 0) {
+            throw org.gradle.api.GradleException(
+                "[so-loader] pack_so.py exited with code ${result.exitValue}. " +
+                "Check that python3 is on PATH and the manifest is valid."
+            )
+        }
     }
 }

@@ -24,8 +24,9 @@ object LZMANative {
             assetMgr.open(assetPath).use { raw ->
                 XZInputStream(raw).use { xz ->
                     val outFile = File(dstPath)
-                    outFile.outputStream().buffered(256 * 1024).use { out ->
-                        xz.copyTo(out)
+                    // 64KB 写缓冲，降低大量 SO 并发解压时的内存峰值
+                    outFile.outputStream().buffered(64 * 1024).use { out ->
+                        xz.copyTo(out, bufferSize = 16 * 1024)
                     }
                     val written = outFile.length()
                     Log.i(TAG, "decompress OK: $dstPath ($written bytes)")
@@ -43,6 +44,4 @@ object LZMANative {
         assetPath: String,
         dstPath: String
     ): Boolean
-
-    external fun verifyMd5(filePath: String, expectedMd5: String): Boolean
 }

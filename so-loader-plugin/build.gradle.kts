@@ -15,6 +15,8 @@ repositories {
 dependencies {
     // AGP API — compileOnly so the plugin doesn't bundle it
     compileOnly("com.android.tools.build:gradle:8.1.0")
+    // GSON for JSON parsing in GenerateSoManifestTask (avoids Groovy JsonSlurper coupling)
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 gradlePlugin {

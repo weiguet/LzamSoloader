@@ -5,6 +5,7 @@
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 #include <android/log.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -21,15 +22,20 @@ static std::vector<uint8_t> read_asset(AAssetManager* mgr, const char* path) {
         LOGE("asset not found: %s", path);
         return {};
     }
-    size_t size = AAsset_getLength(asset);
+    size_t size = static_cast<size_t>(AAsset_getLength(asset));
     std::vector<uint8_t> buf(size);
-    AAsset_read(asset, buf.data(), size);
+    int nread = AAsset_read(asset, buf.data(), size);
     AAsset_close(asset);
+    if (nread != static_cast<int>(size)) {
+        LOGE("AAsset_read returned %d, expected %zu for: %s", nread, size, path);
+        return {};
+    }
     return buf;
 }
 
+// 权限 0600：仅 owner 读写，防止其他进程覆盖解压出的 SO
 static bool write_file(const char* path, const uint8_t* data, size_t size) {
-    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0755);
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     if (fd < 0) {
         LOGE("open failed: %s (errno=%d)", path, errno);
         return false;
@@ -37,10 +43,19 @@ static bool write_file(const char* path, const uint8_t* data, size_t size) {
     size_t written = 0;
     while (written < size) {
         ssize_t n = write(fd, data + written, size - written);
-        if (n <= 0) { close(fd); return false; }
-        written += n;
+        if (n < 0) {
+            if (errno == EINTR) continue;  // 信号中断，重试
+            LOGE("write failed: %s (errno=%d)", path, errno);
+            close(fd);
+            return false;
+        }
+        written += static_cast<size_t>(n);
     }
-    fsync(fd);
+    if (fsync(fd) < 0) {
+        LOGE("fsync failed: %s (errno=%d)", path, errno);
+        close(fd);
+        return false;
+    }
     close(fd);
     return true;
 }
@@ -55,9 +70,19 @@ Java_com_demo_soloader_LZMANative_copyAsset(
     jstring jAssetPath,
     jstring jDstPath
 ) {
-    AAssetManager* mgr        = AAssetManager_fromJava(env, jAssetMgr);
-    const char*    asset_path = env->GetStringUTFChars(jAssetPath, nullptr);
-    const char*    dst_path   = env->GetStringUTFChars(jDstPath,   nullptr);
+    AAssetManager* mgr = AAssetManager_fromJava(env, jAssetMgr);
+
+    const char* asset_path = env->GetStringUTFChars(jAssetPath, nullptr);
+    if (!asset_path) {
+        LOGE("GetStringUTFChars failed for assetPath");
+        return JNI_FALSE;
+    }
+    const char* dst_path = env->GetStringUTFChars(jDstPath, nullptr);
+    if (!dst_path) {
+        LOGE("GetStringUTFChars failed for dstPath");
+        env->ReleaseStringUTFChars(jAssetPath, asset_path);
+        return JNI_FALSE;
+    }
 
     auto data = read_asset(mgr, asset_path);
     bool ok   = !data.empty() && write_file(dst_path, data.data(), data.size());
@@ -65,17 +90,7 @@ Java_com_demo_soloader_LZMANative_copyAsset(
     LOGI("copyAsset %s: %s", asset_path, ok ? "OK" : "FAIL");
     env->ReleaseStringUTFChars(jAssetPath, asset_path);
     env->ReleaseStringUTFChars(jDstPath,   dst_path);
-    return (jboolean)ok;
-}
-
-// com.demo.soloader.LZMANative.verifyMd5
-JNIEXPORT jboolean JNICALL
-Java_com_demo_soloader_LZMANative_verifyMd5(
-    JNIEnv* env, jclass,
-    jstring jFilePath,
-    jstring jExpectedMd5
-) {
-    return JNI_TRUE;
+    return static_cast<jboolean>(ok);
 }
 
 } // extern "C"
