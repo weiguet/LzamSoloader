@@ -3,6 +3,8 @@
 Android SO 分级加载方案：SO 文件用 LZMA 压缩存入 assets，运行时按需解压加载。  
 核心逻辑封装为 **Gradle 插件 + Android 库**，其他项目只需 `apply plugin` 即可接入。
 
+> 纯 Kotlin/Java 实现，无 NDK 依赖。
+
 ---
 
 ## 项目结构
@@ -25,15 +27,13 @@ LzmaLoaderDemo/
 │           ├── App.kt
 │           └── MainActivity.kt
 │
-├── soloader/                         # Android 运行时库（AAR）
+├── soloader/                         # Android 运行时库（AAR，纯 Kotlin，无 NDK）
 │   ├── settings.gradle               # 独立项目，支持 includeBuild
 │   ├── build.gradle
-│   └── src/main/
-│       ├── cpp/lzma_jni.cpp          # Native 文件 I/O（copyAsset + fsync）
-│       └── java/com/demo/soloader/
-│           ├── SoLoader.kt           # 分级调度核心
-│           ├── LZMANative.kt         # JNI 桥接 + XZ 解压
-│           └── SOManifest.kt         # 数据模型 + LoadState
+│   └── src/main/java/com/demo/soloader/
+│       ├── SoLoader.kt               # 分级调度核心
+│       ├── LZMANative.kt             # XZ 解压 + asset copy（纯 Kotlin）
+│       └── SOManifest.kt             # 数据模型 + LoadState
 │
 ├── so-loader-plugin/                 # Gradle 插件
 │   ├── settings.gradle.kts           # 独立项目，支持 includeBuild
@@ -57,10 +57,11 @@ LzmaLoaderDemo/
 
 ```
 App.onCreate()
-  └── SoLoader.init(this)             # 解析 manifest
-  └── SoLoader.initBlocking()
-        ├── L0: asset → filesDir      # 不解压，带 fsync 的 copy
-        └── L1: XZ 解压 → filesDir    # 同步，阻塞主线程
+  └── SoLoader.init(this)               # 解析 manifest（失败立即抛出）
+  └── SoLoader.initL0Blocking()         # 同步，主线程（无解压，copy 极快）
+        └── L0: asset → filesDir/so/
+  └── SoLoader.initL1Async(appScope)    # 异步，IO 线程（不阻塞首帧渲染）
+        └── L1: XZ 解压 → filesDir/so/
 
 Activity.onCreate() → 首帧 post
   └── SoLoader.preloadL2(lifecycleScope)
@@ -68,7 +69,7 @@ Activity.onCreate() → 首帧 post
 
 用户触发
   └── SoLoader.loadOnDemand("libvideo.so")
-        └── L3: 按需解压
+        └── L3: 按需解压（递归加载依赖）
 ```
 
 ---
@@ -122,10 +123,10 @@ plugins {
 }
 
 soLoader {
-    soSrcDir     = file("libs/so/arm64-v8a")      // 原始 SO 目录
-    manifestFile = file("libs/so/so_manifest.json") // 分级配置文件
-    // outDir    = file("src/main/assets/so")      // 可选，默认值如此
-    // algorithm = 'lzma'                           // 可选，默认 lzma
+    soSrcDir     = file("libs/so/arm64-v8a")        // 原始 SO 目录
+    manifestFile = file("libs/so/so_manifest.json")  // 分级配置文件
+    // outDir    = file("src/main/assets/so")         // 可选，默认值如此
+    // algorithm = 'lzma'                             // 可选，默认 lzma
 }
 ```
 
@@ -149,12 +150,16 @@ soLoader {
 
 ```kotlin
 import com.demo.soloader.SoLoader
+import kotlinx.coroutines.MainScope
 
 class App : Application() {
+    private val appScope = MainScope()
+
     override fun onCreate() {
         super.onCreate()
         SoLoader.init(this)
-        SoLoader.initBlocking()  // 同步加载 L0 + L1
+        SoLoader.initL0Blocking()       // 同步加载 L0（极快）
+        SoLoader.initL1Async(appScope)  // 异步加载 L1，不阻塞主线程
     }
 }
 ```
@@ -241,7 +246,7 @@ dependencyResolutionManagement {
 | Level | 触发时机 | 压缩策略 |
 |-------|----------|----------|
 | L0 | `Application.onCreate` 同步 | 不压缩（直接 copy，优先启动速度） |
-| L1 | `Application.onCreate` 同步 | LZMA 轻压缩 |
+| L1 | `Application.onCreate` IO 线程异步 | LZMA 轻压缩 |
 | L2 | 首帧渲染后，后台 IO 线程 | LZMA 标准压缩 |
 | L3 | 业务按需触发 | LZMA 极限压缩 |
 
@@ -249,7 +254,7 @@ dependencyResolutionManagement {
 
 ## 运行效果（Demo）
 
-- 启动后 L0+L1 自动解压加载，显示各 SO 耗时
+- 启动后 L0 同步 copy，L1 异步解压，显示各 SO 耗时
 - 首帧后 L2 后台加载，状态实时刷新
 - 点击「按需加载 L3」触发 L3 解压
 - 点击「清除缓存」验证二次启动走缓存路径（跳过解压）

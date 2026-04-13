@@ -100,7 +100,8 @@ SoLoaderPlugin.apply()
 ```
 PackSoAssetsTask.pack()
   ├── 从插件 jar 内提取 /pack_so.py → temporaryDir/pack_so.py
-  └── exec("python3 pack_so.py --so-dir ... --manifest ... --out ... --algo lzma")
+  ├── exec("python3 pack_so.py --so-dir ... --manifest ... --out ... --algo lzma")
+  └── 检查退出码，非 0 则抛出 GradleException（明确报错原因）
 ```
 
 `pack_so.py` 执行逻辑：
@@ -134,6 +135,8 @@ PackSoAssetsTask.pack()
       （开发者手动编辑 level 和 deps）
 ```
 
+JSON 解析使用 GSON（不依赖 Groovy `JsonSlurper`，与 Gradle 版本解耦）。
+
 ---
 
 ## 4. 运行期流程（Android 库）
@@ -142,15 +145,13 @@ PackSoAssetsTask.pack()
 
 ```
 soloader/
-└── src/main/
-    ├── cpp/
-    │   ├── CMakeLists.txt
-    │   └── lzma_jni.cpp        # Native：带 fsync 的 asset copy + MD5 校验
-    └── java/com/demo/soloader/
-        ├── SoLoader.kt         # 分级调度核心（单例）
-        ├── LZMANative.kt       # JNI 桥接 + XZ 解压（Kotlin 侧）
-        └── SOManifest.kt       # 数据模型 + LoadState
+└── src/main/java/com/demo/soloader/
+    ├── SoLoader.kt         # 分级调度核心（单例）
+    ├── LZMANative.kt       # 纯 Kotlin 实现：XZ 解压 + asset copy
+    └── SOManifest.kt       # 数据模型 + LoadState
 ```
+
+> 无 NDK / JNI 层。解压使用 `org.tukaani:xz`（纯 Java），asset copy 使用标准 `AssetManager` API，均在 Kotlin 层完成。
 
 ### 4.2 数据模型
 
@@ -196,11 +197,13 @@ Pending → Loading → Done(ms)
 Application.onCreate()
   └── SoLoader.init(context)
         ├── 从 PackageManager 读取 versionCode（用于缓存校验）
-        ├── 解析 assets/so/manifest.json
+        ├── 解析 assets/so/manifest.json（fail-fast，失败立即抛出）
         └── 初始化所有条目 loadStates = Pending
 
-  └── SoLoader.initBlocking()        // 同步，阻塞主线程
-        ├── L0: copyAsset（native fsync copy）
+  └── SoLoader.initL0Blocking()      // 同步，主线程（copy 无解压，耗时极短）
+        └── L0: copyAsset → filesDir/so/
+
+  └── SoLoader.initL1Async(appScope) // 异步，IO 线程（不阻塞主线程/首帧渲染）
         └── L1: XZ 解压 → filesDir/so/
 
 Activity.onCreate() → binding.root.post {
@@ -211,33 +214,37 @@ Activity.onCreate() → binding.root.post {
 
 用户行为触发
   └── SoLoader.loadOnDemand("libvideo.so")
-        ├── 递归确保 deps 已加载
+        ├── 递归确保 deps 已加载（防循环）
         └── L3: XZ 解压
 ```
 
 ### 4.4 ensureAndLoad — 核心加载逻辑
 
 ```kotlin
-@Synchronized
 fun ensureAndLoad(entry: SOEntry): Boolean {
-    if (loaded[entry.name] == true) return true   // 幂等保护
+    if (loaded[entry.name] == true) return true   // 快速路径
 
-    updateState(entry.name, LoadState.Loading)
+    // 每 SO 独立锁，不同 SO 可并发加载
+    val lock = entryLocks.getOrPut(entry.name) { Any() }
+    synchronized(lock) {
+        if (loaded[entry.name] == true) return true  // 双重检查
 
-    if (!isCacheValid(entry, outFile)) {
-        // 缓存未命中：解压 or copy
-        val ok = if (entry.compressed)
-            LZMANative.decompress(assetMgr, entry.assetPath, dstPath, entry.origSize)
-        else
-            LZMANative.copyAsset(assetMgr, entry.assetPath, dstPath)
+        updateState(entry.name, LoadState.Loading)
 
-        // 写缓存标记：key=versionCode_origMd5
-        prefs.edit().putString(cacheKey(entry.name), cacheTag(entry)).apply()
+        if (!isCacheValid(entry, outFile)) {
+            // 先写 .tmp，成功后 rename，失败则 delete（防止残缺文件）
+            val ok = if (entry.compressed)
+                decompressToFile(entry, outFile)   // XZ 解压
+            else
+                copyAssetToFile(entry, outFile)    // 直接 copy
+
+            prefs.edit().putString(cacheKey(entry.name), cacheTag(entry)).apply()
+        }
+
+        System.load(outFile.absolutePath)          // 真实场景替换 simulateLoad
+        loaded[entry.name] = true
+        updateState(entry.name, LoadState.Done(ms))
     }
-
-    System.load(outFile.absolutePath)             // 真实场景替换 simulateLoad
-    loaded[entry.name] = true
-    updateState(entry.name, LoadState.Done(ms))
 }
 ```
 
@@ -255,15 +262,6 @@ fun ensureAndLoad(entry: SOEntry): Boolean {
   - 用户手动清除 filesDir（文件不存在）
 ```
 
-### 4.6 Native 层（lzma_jni.cpp）
-
-| JNI 方法 | 作用 |
-|----------|------|
-| `copyAsset` | 用 AAssetManager 读取 asset，写入 dst，调用 `fsync()` 确保落盘 |
-| `verifyMd5` | 对文件计算 MD5，与 manifest 中 orig_md5 比对 |
-
-XZ 解压在 Kotlin 层通过 `org.tukaani:xz` 库完成（纯 Java，无需 NDK）。
-
 ---
 
 ## 5. 压缩策略设计
@@ -271,7 +269,7 @@ XZ 解压在 Kotlin 层通过 `org.tukaani:xz` 库完成（纯 Java，无需 NDK
 | Level | 触发时机 | 压缩 preset | 原因 |
 |-------|----------|------------|------|
 | L0 | 启动同步 | 不压缩 | 启动链路最关键，copy 比解压快 |
-| L1 | 启动同步 | preset=1 | 轻压缩，节省包体积同时保持解压速度 |
+| L1 | 启动异步（IO 线程）| preset=1 | 轻压缩，不阻塞主线程 |
 | L2 | 首帧后后台 | preset=6 | 用户已看到 UI，后台解压不影响体验 |
 | L3 | 按需触发 | preset=9 | 非高频，极限压缩最大化节省空间 |
 
@@ -286,6 +284,7 @@ XZ 解压在 Kotlin 层通过 `org.tukaani:xz` 库完成（纯 Java，无需 NDK
 │  app ──apply──► so-loader-plugin                     │
 │                      │                               │
 │                      ├── compileOnly AGP 8.1.0       │
+│                      ├── implementation gson 2.10.1  │
 │                      ├── 自动注入 implementation      │
 │                      │   com.demo:soloader:1.0.0      │
 │                      └── pack_so.py 内置于 jar       │
@@ -299,8 +298,9 @@ XZ 解压在 Kotlin 层通过 `org.tukaani:xz` 库完成（纯 Java，无需 NDK
 │                              ├── org.tukaani:xz      │
 │                              ├── com.google.code.    │
 │                              │   gson:gson           │
-│                              └── liblzma_loader.so   │
-│                                  (CMake NDK 编译)     │
+│                              └── kotlinx-coroutines  │
+│                                                       │
+│  （无 NDK，无 .so，纯 Kotlin/Java 实现）               │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -387,6 +387,18 @@ lint{Variant}
 packSoAssets{Variant}
 ```
 
+### 8.6 为什么不用 NDK / JNI
+
+asset copy 和 XZ 解压均可通过 Kotlin/Java 标准 API 完成：
+
+- `AssetManager.open()` 读取 asset，`OutputStream.write()` 写入文件，效果与 NDK `AAssetManager` 一致
+- `org.tukaani:xz` 是纯 Java 实现，无需 NDK
+
+去掉 JNI 层的收益：
+- 构建无需 NDK，`./gradlew assembleDebug` 速度更快
+- APK 中无额外 `.so`，各 ABI 各省数十 KB
+- 代码更简单，无 JNI 胶水层和手动内存管理
+
 ---
 
 ## 9. 目录结构速查
@@ -401,13 +413,11 @@ LzmaLoaderDemo/
 │       ├── l2/libim.so.lzma
 │       └── l3/libvideo.so.lzma
 │
-├── soloader/                         # 运行时库（AAR）
-│   └── src/main/
-│       ├── cpp/lzma_jni.cpp          # Native copyAsset + MD5
-│       └── java/com/demo/soloader/
-│           ├── SoLoader.kt           # 分级调度核心
-│           ├── LZMANative.kt         # JNI 桥接 + XZ 解压
-│           └── SOManifest.kt         # 数据模型 + LoadState
+├── soloader/                         # 运行时库（AAR，纯 Kotlin，无 NDK）
+│   └── src/main/java/com/demo/soloader/
+│       ├── SoLoader.kt               # 分级调度核心
+│       ├── LZMANative.kt             # XZ 解压 + asset copy（纯 Kotlin）
+│       └── SOManifest.kt             # 数据模型 + LoadState
 │
 ├── so-loader-plugin/                 # Gradle 插件
 │   └── src/main/
